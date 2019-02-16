@@ -103,3 +103,101 @@ msgstr "Предпочтительно M3U"
 msgctxt "#30044"
 msgid "Prefer XMLTV"
 msgstr "Предпочтительно XMLTV"
+
+#empty strings from id 30045 to 30059
+
+msgctxt "#30060"
+msgid "Archive Settings"
+msgstr "Настройки Архива"
+
+msgctxt "#30061"
+msgid "Enable Archive support"
+msgstr "Включить поддержку Архива"
+
+msgctxt "#30062"
+msgid "Archive URL format"
+msgstr "Формат ссылки на Архив"
+
+msgctxt "#30063"
+msgid "Timeshift Settings"
+msgstr "Настройки Таймшифта"
+
+msgctxt "#30064"
+msgid "Timeshift buffer"
+msgstr "Буфер Таймшифта"
+
+msgctxt "#30065"
+msgid "Watch From EPG Settings"
+msgstr "Настройки просмотра из EPG"
+
+msgctxt "#30066"
+msgid "Extra time before program start"
+msgstr "Дополнительное время до начала программы"
+
+msgctxt "#30067"
+msgid "Extra time after program end"
+msgstr "Дополнительное время после окончания программы"
+
+msgctxt "#30068"
+msgid "Play from EPG in Live TV mode (using timeshift)"
+msgstr "Воспроизведение из EPG в режиме Live TV (используя Таймшифт)"
+
+#empty strings from id 30069 to 30079
+
+msgctxt "#30080"
+msgid "None"
+msgstr "Без"
+
+msgctxt "#30081"
+msgid "2 minutes"
+msgstr "2 минуты"
+
+msgctxt "#30082"
+msgid "5 minutes"
+msgstr "5 минут"
+
+msgctxt "#30083"
+msgid "10 minutes"
+msgstr "10 минут"
+
+msgctxt "#30084"
+msgid "15 minutes"
+msgstr "15 минут"
+
+msgctxt "#30085"
+msgid "30 minutes"
+msgstr "30 минут"
+
+msgctxt "#30086"
+msgid "60 minutes"
+msgstr "60 минут"
+
+#empty strings from id 30087 to 30089
+
+msgctxt "#30090"
+msgid "1 day"
+msgstr "1 день"
+
+msgctxt "#30091"
+msgid "2 days"
+msgstr "2 дня"
+
+msgctxt "#30092"
+msgid "3 days"
+msgstr "3 дня"
+
+msgctxt "#30093"
+msgid "4 days"
+msgstr "4 дня"
+
+msgctxt "#30094"
+msgid "5 days"
+msgstr "5 дней"
+
+msgctxt "#30095"
+msgid "6 days"
+msgstr "6 дней"
+
+msgctxt "#30096"
+msgid "7 days"
+msgstr "7 дней"
