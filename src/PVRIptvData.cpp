@@ -987,7 +987,8 @@ PVR_ERROR PVRIptvData::GetChannels(ADDON_HANDLE handle, bool bRadio)
       xbmcChannel.iEncryptionSystem = channel.iEncryptionSystem;
       strncpy(xbmcChannel.strIconPath, channel.strLogoPath.c_str(), sizeof(xbmcChannel.strIconPath) - 1);
       xbmcChannel.bIsHidden         = false;
-      xbmcChannel.bHasArchive       = IsArchiveSupportedOnChannel(channel);
+      if (IsArchiveSupportedOnChannel(channel))
+        strncpy(xbmcChannel.strInputFormat, "iptv/hasarchive", sizeof(xbmcChannel.strInputFormat) - 1);
 
       PVR->TransferChannelEntry(handle, &xbmcChannel);
     }
