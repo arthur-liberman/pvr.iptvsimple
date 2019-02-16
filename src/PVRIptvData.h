@@ -29,6 +29,8 @@
 #include "kodi/libXBMC_pvr.h"
 #include "p8-platform/threads/threads.h"
 
+#define DVD_TIME_BASE 1000000
+
 struct PVRIptvEpgEntry
 {
   int         iBroadcastId;
@@ -72,10 +74,15 @@ struct PVRIptvChannel
   std::string strChannelName;
   std::string strLogoPath;
   std::string strStreamURL;
+  std::string strCatchupSource;
+  std::string strGroupName;
   std::string strTvgId;
   std::string strTvgName;
   std::string strTvgLogo;
   std::map<std::string, std::string> properties;
+  EPG_TAG     epgTag;
+  int         iCatchupLength;
+  time_t      timeshiftStartTime;
 };
 
 struct PVRIptvChannelGroup
@@ -101,6 +108,8 @@ public:
 
   virtual int       GetChannelsAmount(void);
   virtual PVR_ERROR GetChannels(ADDON_HANDLE handle, bool bRadio);
+  virtual bool      GetChannel(int uniqueId, PVRIptvChannel &myChannel);
+  virtual bool      GetChannel(const EPG_TAG *tag, PVRIptvChannel &myChannel);
   virtual bool      GetChannel(const PVR_CHANNEL &channel, PVRIptvChannel &myChannel);
   virtual int       GetChannelGroupsAmount(void);
   virtual PVR_ERROR GetChannelGroups(ADDON_HANDLE handle, bool bRadio);
@@ -109,6 +118,12 @@ public:
   virtual void      ReaplyChannelsLogos(const char * strNewPath);
   virtual void      ReloadPlayList(const char * strNewPath);
   virtual void      ReloadEPG(const char * strNewPath);
+  virtual std::string GetEpgTagUrl(const EPG_TAG *tag, PVRIptvChannel &myChannel);
+  virtual long long GetEpgUrlTimeOffset(void) { return m_iEpgUrlTimeOffset; }
+  virtual void      SetEpgUrlTimeOffset(long long offset) { m_iEpgUrlTimeOffset = offset; }
+  virtual bool      GetLiveEPGTag(const PVRIptvChannel &myChannel, EPG_TAG &tag, bool addTvgShift);
+  virtual bool      IsArchiveSupportedOnChannel(const PVRIptvChannel &channel);
+  virtual bool      IsArchiveSupportedOnChannel(int uniqueId);
 
 protected:
   virtual bool                 LoadPlayList(void);
@@ -119,7 +134,7 @@ protected:
   virtual PVRIptvChannelGroup* FindGroup(const std::string &strName);
   virtual PVRIptvEpgChannel*   FindEpg(const std::string &strId);
   PVRIptvEpgChannel* FindEpgForChannel(const std::string& id);
-  virtual PVRIptvEpgChannel*   FindEpgForChannel(PVRIptvChannel &channel);
+  virtual PVRIptvEpgChannel*   FindEpgForChannel(const PVRIptvChannel &channel);
   virtual bool                 FindEpgGenre(const std::string& strGenre, int& iType, int& iSubType);
   virtual bool                 GzipInflate(const std::string &compressedBytes, std::string &uncompressedBytes);
   virtual int                  GetCachedFileContents(const std::string &strCachedName, const std::string &strFilePath,
@@ -132,6 +147,8 @@ protected:
 
 protected:
   virtual void *Process(void);
+  virtual std::string BuildEpgTagUrl(const EPG_TAG *tag, const PVRIptvChannel &channel);
+  virtual void FillEPGTag(const PVRIptvEpgEntry *epgEntry, const PVRIptvChannel &channel, int shift, EPG_TAG &tag);
 
 private:
   static bool ParseEpisodeNumberInfo(const std::vector<std::pair<std::string, std::string>>& episodeNumbersList, PVRIptvEpgEntry& entry);
@@ -151,4 +168,6 @@ private:
   std::vector<PVRIptvEpgChannel>    m_epg;
   std::vector<PVRIptvEpgGenre>      m_genres;
   P8PLATFORM::CMutex                m_mutex;
+
+  long long                         m_iEpgUrlTimeOffset;
 };

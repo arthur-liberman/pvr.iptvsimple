@@ -23,6 +23,7 @@
  */
 
 #include "client.h"
+#include "ArchiveConfig.h"
 #include "kodi/xbmc_pvr_dll.h"
 #include "PVRIptvData.h"
 #include "p8-platform/util/util.h"
@@ -42,7 +43,7 @@ using namespace ADDON;
 bool           m_bCreated       = false;
 ADDON_STATUS   m_CurStatus      = ADDON_STATUS_UNKNOWN;
 PVRIptvData   *m_data           = NULL;
-PVRIptvChannel m_currentChannel;
+PVRIptvChannel m_currentChannel = {0};
 
 /* User adjustable settings are saved here.
  * Default values are defined inside client.h
@@ -65,6 +66,10 @@ bool        g_bTSOverride   = true;
 bool        g_bCacheM3U     = false;
 bool        g_bCacheEPG     = false;
 int         g_iEPGLogos     = 0;
+
+bool        g_bIsArchive    = false;
+bool        g_bResetUrlOffset = false;
+CArchiveConfig g_ArchiveConfig;
 
 extern std::string PathCombine(const std::string &strPath, const std::string &strFileName)
 {
@@ -175,6 +180,8 @@ void ADDON_ReadSettings(void)
   // Logos from EPG
   if (!XBMC->GetSetting("logoFromEpg", &g_iEPGLogos))
     g_iEPGLogos = 0;
+
+  g_ArchiveConfig.ReadSettings(XBMC);
 }
 
 ADDON_STATUS ADDON_Create(void* hdl, void* props)
@@ -201,7 +208,7 @@ ADDON_STATUS ADDON_Create(void* hdl, void* props)
     return ADDON_STATUS_PERMANENT_FAILURE;
   }
 
-  XBMC->Log(LOG_DEBUG, "%s - Creating the PVR IPTV Simple add-on", __FUNCTION__);
+  XBMC->Log(LOG_DEBUG, "%s - Creating the PVR IPTV Archive add-on", __FUNCTION__);
 
   m_CurStatus     = ADDON_STATUS_UNKNOWN;
   g_strUserPath   = pvrprops->strUserPath;
@@ -288,7 +295,7 @@ PVR_ERROR GetAddonCapabilities(PVR_ADDON_CAPABILITIES* pCapabilities)
 
 const char *GetBackendName(void)
 {
-  static const char *strBackendName = "IPTV Simple PVR Add-on";
+  static const char *strBackendName = "IPTV Archive PVR Add-on";
   return strBackendName;
 }
 
@@ -340,30 +347,52 @@ PVR_ERROR GetChannels(ADDON_HANDLE handle, bool bRadio)
   return PVR_ERROR_SERVER_ERROR;
 }
 
+void SetStreamProperty(PVR_NAMED_VALUE* properties, unsigned int* iPropertiesCount,std::string name, std::string value)
+{
+  strncpy(properties[*iPropertiesCount].strName, name.c_str(), sizeof(properties[*iPropertiesCount].strName) - 1);
+  strncpy(properties[*iPropertiesCount].strValue, value.c_str(), sizeof(properties[*iPropertiesCount].strValue) - 1);
+  (*iPropertiesCount)++;
+}
+
 PVR_ERROR GetChannelStreamProperties(const PVR_CHANNEL* channel, PVR_NAMED_VALUE* properties, unsigned int* iPropertiesCount)
 {
-  if (!channel || !properties || !iPropertiesCount)
+  if (!m_data || !channel || !properties || !iPropertiesCount)
     return PVR_ERROR_SERVER_ERROR;
 
   if (*iPropertiesCount < 1)
     return PVR_ERROR_INVALID_PARAMETERS;
 
-  if (m_data && m_data->GetChannel(*channel, m_currentChannel))
+  *iPropertiesCount = 0;
+  if (m_data->GetChannel(*channel, m_currentChannel))
   {
-    strncpy(properties[0].strName, PVR_STREAM_PROPERTY_STREAMURL, sizeof(properties[0].strName) - 1);
-    strncpy(properties[0].strValue, m_currentChannel.strStreamURL.c_str(), sizeof(properties[0].strValue) - 1);
-    *iPropertiesCount = 1;
+    g_bIsArchive = false;
+    if (g_bResetUrlOffset)
+    {
+      g_bResetUrlOffset = false;
+      if (m_data->IsArchiveSupportedOnChannel(m_currentChannel))
+      {
+        m_data->SetEpgUrlTimeOffset(g_ArchiveConfig.GetTimeshiftBuffer());
+        m_currentChannel.timeshiftStartTime = time(0) - g_ArchiveConfig.GetTimeshiftBuffer();
+      }
+      else
+      {
+        m_data->SetEpgUrlTimeOffset(0);
+        m_currentChannel.timeshiftStartTime = 0;
+      }
+    }
+    m_currentChannel.epgTag.startTime = m_currentChannel.timeshiftStartTime;
+    std::string epgStrUrl = m_data->GetEpgTagUrl(nullptr, m_currentChannel);
+    if (!epgStrUrl.empty())
+      SetStreamProperty(properties, iPropertiesCount, PVR_STREAM_PROPERTY_STREAMURL, epgStrUrl.c_str());
+    else
+      SetStreamProperty(properties, iPropertiesCount, PVR_STREAM_PROPERTY_STREAMURL, m_currentChannel.strStreamURL.c_str());
     if (!m_currentChannel.properties.empty())
     {
       for (auto& prop : m_currentChannel.properties)
-      {
-        strncpy(properties[*iPropertiesCount].strName, prop.first.c_str(),
-                sizeof(properties[*iPropertiesCount].strName) - 1);
-        strncpy(properties[*iPropertiesCount].strValue, prop.second.c_str(),
-                sizeof(properties[*iPropertiesCount].strName) - 1);
-        (*iPropertiesCount)++;
-      }
+        SetStreamProperty(properties, iPropertiesCount, prop.first, prop.second);
     }
+
+    XBMC->Log(LOG_DEBUG, "GetChannelStreamProperties - url: %s", properties[0].strValue);
     return PVR_ERROR_NO_ERROR;
   }
 
@@ -396,14 +425,160 @@ PVR_ERROR GetChannelGroupMembers(ADDON_HANDLE handle, const PVR_CHANNEL_GROUP &g
 
 PVR_ERROR SignalStatus(PVR_SIGNAL_STATUS &signalStatus)
 {
-  snprintf(signalStatus.strAdapterName, sizeof(signalStatus.strAdapterName), "IPTV Simple Adapter 1");
+  snprintf(signalStatus.strAdapterName, sizeof(signalStatus.strAdapterName), "IPTV Archive Adapter 1");
   snprintf(signalStatus.strAdapterStatus, sizeof(signalStatus.strAdapterStatus), "OK");
 
   return PVR_ERROR_NO_ERROR;
 }
 
+PVR_ERROR IsEPGTagPlayable(const EPG_TAG* tag, bool* bIsPlayable)
+{
+  if (!m_data)
+    return PVR_ERROR_SERVER_ERROR;
+
+  const time_t now = time(nullptr);
+  PVRIptvChannel channel;
+  *bIsPlayable = (g_ArchiveConfig.IsEnabled() && tag->startTime < now && m_data->GetChannel(tag, channel) &&
+    m_data->IsArchiveSupportedOnChannel(channel) && tag->startTime >= (now - static_cast<time_t>(channel.iCatchupLength)));
+  return PVR_ERROR_NO_ERROR;
+}
+
+PVR_ERROR GetEPGTagStreamProperties(const EPG_TAG* tag,
+    PVR_NAMED_VALUE* properties, unsigned int* iPropertiesCount)
+{
+  XBMC->Log(LOG_DEBUG, "GetEPGTagStreamProperties - Tag startTime: %ld \tendTime: %ld", tag->startTime, tag->endTime);
+
+  if (!m_data || !tag || !properties || !iPropertiesCount)
+    return PVR_ERROR_SERVER_ERROR;
+
+  if (*iPropertiesCount < 1)
+    return PVR_ERROR_INVALID_PARAMETERS;
+
+  *iPropertiesCount = 0;
+  XBMC->Log(LOG_DEBUG, "GetEPGTagStreamProperties - GetPlayEpgAsLive is %s",
+            g_ArchiveConfig.GetPlayEpgAsLive() ? "enabled" : "disabled");
+  if (g_ArchiveConfig.GetPlayEpgAsLive())
+  {
+    g_bResetUrlOffset = false;
+    m_data->GetEpgTagUrl(tag, m_currentChannel);
+    time_t timeNow = time(0);
+    time_t programOffset = timeNow - m_currentChannel.epgTag.startTime;
+    time_t timeshiftBuffer = std::max(programOffset, g_ArchiveConfig.GetTimeshiftBuffer());
+    m_currentChannel.timeshiftStartTime = timeNow - timeshiftBuffer;
+    m_currentChannel.epgTag.startTime = m_currentChannel.timeshiftStartTime;
+    m_currentChannel.epgTag.endTime = timeNow;
+    m_data->SetEpgUrlTimeOffset(timeshiftBuffer - programOffset);
+  }
+  else if (g_bResetUrlOffset)
+  {
+    g_bResetUrlOffset = false;
+    m_data->GetEpgTagUrl(tag, m_currentChannel);
+    const time_t beginBuffer = g_ArchiveConfig.GetEpgBeginBuffer();
+    const time_t endBuffer = g_ArchiveConfig.GetEpgEndBuffer();
+    m_currentChannel.timeshiftStartTime = m_currentChannel.epgTag.startTime - beginBuffer;
+    m_currentChannel.epgTag.startTime = m_currentChannel.timeshiftStartTime;
+    m_currentChannel.epgTag.endTime += endBuffer;
+    m_data->SetEpgUrlTimeOffset(beginBuffer);
+  }
+  std::string epgStrUrl = m_data->GetEpgTagUrl(nullptr, m_currentChannel);
+  if (!epgStrUrl.empty())
+  {
+    g_bIsArchive = true;
+    SetStreamProperty(properties, iPropertiesCount, PVR_STREAM_PROPERTY_STREAMURL, epgStrUrl.c_str());
+    if (!m_currentChannel.properties.empty())
+    {
+      for (auto& prop : m_currentChannel.properties)
+        SetStreamProperty(properties, iPropertiesCount, prop.first, prop.second);
+    }
+
+    XBMC->Log(LOG_DEBUG, "GetEPGTagStreamProperties - url: %s", epgStrUrl.c_str());
+    return g_ArchiveConfig.GetPlayEpgAsLive() ? PVR_ERROR_NOT_IMPLEMENTED : PVR_ERROR_NO_ERROR;
+  }
+
+  return PVR_ERROR_FAILED;
+}
+
+PVR_ERROR GetStreamTimes(PVR_STREAM_TIMES *times)
+{
+  if (!times)
+    return PVR_ERROR_INVALID_PARAMETERS;
+  if (!g_ArchiveConfig.IsEnabled() || m_currentChannel.timeshiftStartTime == 0)
+    return PVR_ERROR_NOT_IMPLEMENTED;
+
+  *times = {0};
+  const time_t dateTimeNow = time(0);
+  const EPG_TAG &epgTag = m_currentChannel.epgTag;
+  times->startTime = m_currentChannel.timeshiftStartTime;
+  if (g_bIsArchive)
+    times->ptsEnd = static_cast<int64_t>(std::min(dateTimeNow, epgTag.endTime) - times->startTime) * DVD_TIME_BASE;
+  else
+    times->ptsEnd = static_cast<int64_t>(dateTimeNow - times->startTime) * DVD_TIME_BASE;
+
+  XBMC->Log(LOG_DEBUG, "GetStreamTimes - Ch = %u \tTitle = \"%s\" \tepgTag->startTime = %ld \tepgTag->endTime = %ld",
+            m_currentChannel.epgTag.iUniqueChannelId, m_currentChannel.epgTag.strTitle, m_currentChannel.epgTag.startTime, m_currentChannel.epgTag.endTime);
+  XBMC->Log(LOG_DEBUG, "GetStreamTimes - startTime = %ld \tptsStart = %lld \tptsBegin = %lld \tptsEnd = %lld",
+            times->startTime, times->ptsStart, times->ptsBegin, times->ptsEnd);
+  return PVR_ERROR_NO_ERROR;
+}
+
+long long LengthLiveStream(void)
+{
+  long long ret = -1;
+  const EPG_TAG &epgTag = m_currentChannel.epgTag;
+  if (epgTag.startTime > 0 && epgTag.endTime >= epgTag.startTime)
+    ret = (epgTag.endTime - epgTag.startTime) * DVD_TIME_BASE;
+  return ret;
+}
+
+long long SeekLiveStream(long long iPosition, int iWhence /* = SEEK_SET */)
+{
+  long long ret = -1;
+  const EPG_TAG &epgTag = m_currentChannel.epgTag;
+  if (epgTag.startTime > 0)
+  {
+    XBMC->Log(LOG_DEBUG, "SeekLiveStream - iPosition = %lld, iWhence = %d", iPosition, iWhence);
+    const time_t timeNow = time(0);
+    switch (iWhence)
+    {
+      case SEEK_SET:
+      {
+        iPosition += 500;
+        iPosition /= 1000;
+        if (epgTag.startTime + iPosition < timeNow - 10)
+        {
+          ret = iPosition;
+          m_data->SetEpgUrlTimeOffset(iPosition);
+        }
+        else
+        {
+          ret = timeNow - epgTag.startTime;
+          m_data->SetEpgUrlTimeOffset(ret);
+        }
+        ret *= DVD_TIME_BASE;
+      }
+      break;
+      case SEEK_CUR:
+      {
+        long long offset = m_data->GetEpgUrlTimeOffset();
+        XBMC->Log(LOG_DEBUG, "SeekLiveStream - timeNow = %d, startTime = %d, iTvgShift = %d, offset = %d", timeNow, epgTag.startTime, m_currentChannel.iTvgShift, offset);
+        ret = offset * DVD_TIME_BASE;
+      }
+      break;
+      default:
+        XBMC->Log(LOG_NOTICE, "SeekLiveStream - Unsupported SEEK command (%d)", iWhence);
+      break;
+    }
+  }
+  return ret;
+}
+
+void CloseLiveStream(void)
+{
+  g_bResetUrlOffset = true;
+}
+
 /** UNUSED API FUNCTIONS */
-bool CanPauseStream(void) { return false; }
+bool CanPauseStream(void) { return true; }
 int GetRecordingsAmount(bool deleted) { return -1; }
 PVR_ERROR GetRecordings(ADDON_HANDLE handle, bool deleted) { return PVR_ERROR_NOT_IMPLEMENTED; }
 PVR_ERROR GetRecordingStreamProperties(const PVR_RECORDING*, PVR_NAMED_VALUE*, unsigned int*) { return PVR_ERROR_NOT_IMPLEMENTED; }
@@ -413,7 +588,6 @@ PVR_ERROR DeleteChannel(const PVR_CHANNEL &channel) { return PVR_ERROR_NOT_IMPLE
 PVR_ERROR RenameChannel(const PVR_CHANNEL &channel) { return PVR_ERROR_NOT_IMPLEMENTED; }
 PVR_ERROR OpenDialogChannelSettings(const PVR_CHANNEL &channel) { return PVR_ERROR_NOT_IMPLEMENTED; }
 PVR_ERROR OpenDialogChannelAdd(const PVR_CHANNEL &channel) { return PVR_ERROR_NOT_IMPLEMENTED; }
-void CloseLiveStream(void) { }
 bool OpenRecordedStream(const PVR_RECORDING &recording) { return false; }
 bool OpenLiveStream(const PVR_CHANNEL &channel) { return false; }
 void CloseRecordedStream(void) {}
@@ -423,8 +597,6 @@ long long LengthRecordedStream(void) { return 0; }
 void DemuxReset(void) {}
 void DemuxFlush(void) {}
 int ReadLiveStream(unsigned char *pBuffer, unsigned int iBufferSize) { return 0; }
-long long SeekLiveStream(long long iPosition, int iWhence /* = SEEK_SET */) { return -1; }
-long long LengthLiveStream(void) { return -1; }
 PVR_ERROR DeleteRecording(const PVR_RECORDING &recording) { return PVR_ERROR_NOT_IMPLEMENTED; }
 PVR_ERROR RenameRecording(const PVR_RECORDING &recording) { return PVR_ERROR_NOT_IMPLEMENTED; }
 PVR_ERROR SetRecordingPlayCount(const PVR_RECORDING &recording, int count) { return PVR_ERROR_NOT_IMPLEMENTED; }
@@ -442,7 +614,7 @@ DemuxPacket* DemuxRead(void) { return NULL; }
 bool IsTimeshifting(void) { return false; }
 bool IsRealTimeStream(void) { return true; }
 void PauseStream(bool bPaused) {}
-bool CanSeekStream(void) { return false; }
+bool CanSeekStream(void) { return true; }
 bool SeekTime(double,bool,double*) { return false; }
 void SetSpeed(int) {};
 PVR_ERROR UndeleteRecording(const PVR_RECORDING& recording) { return PVR_ERROR_NOT_IMPLEMENTED; }
@@ -450,11 +622,8 @@ PVR_ERROR DeleteAllRecordingsFromTrash() { return PVR_ERROR_NOT_IMPLEMENTED; }
 PVR_ERROR SetEPGTimeFrame(int) { return PVR_ERROR_NOT_IMPLEMENTED; }
 PVR_ERROR GetDescrambleInfo(PVR_DESCRAMBLE_INFO*) { return PVR_ERROR_NOT_IMPLEMENTED; }
 PVR_ERROR SetRecordingLifetime(const PVR_RECORDING*) { return PVR_ERROR_NOT_IMPLEMENTED; }
-PVR_ERROR GetStreamTimes(PVR_STREAM_TIMES*) { return PVR_ERROR_NOT_IMPLEMENTED; }
 PVR_ERROR GetStreamProperties(PVR_STREAM_PROPERTIES*) { return PVR_ERROR_NOT_IMPLEMENTED; }
 PVR_ERROR IsEPGTagRecordable(const EPG_TAG*, bool*) { return PVR_ERROR_NOT_IMPLEMENTED; }
-PVR_ERROR IsEPGTagPlayable(const EPG_TAG*, bool*) { return PVR_ERROR_NOT_IMPLEMENTED; }
-PVR_ERROR GetEPGTagStreamProperties(const EPG_TAG*, PVR_NAMED_VALUE*, unsigned int*) { return PVR_ERROR_NOT_IMPLEMENTED; }
 PVR_ERROR GetEPGTagEdl(const EPG_TAG* epgTag, PVR_EDL_ENTRY edl[], int *size) { return PVR_ERROR_NOT_IMPLEMENTED; }
 PVR_ERROR GetStreamReadChunkSize(int* chunksize) { return PVR_ERROR_NOT_IMPLEMENTED; }
 
