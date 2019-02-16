@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(pvr.iptvsimple)
+project(pvr.iptvarchive)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
 
@@ -26,9 +26,9 @@ set(IPTV_SOURCES src/client.cpp
 set(IPTV_HEADERS src/client.h
                  src/PVRIptvData.h)
 
-addon_version(pvr.iptvsimple IPTV)
+addon_version(pvr.iptvarchive IPTV)
 add_definitions(-DIPTV_VERSION=${IPTV_VERSION})
 
-build_addon(pvr.iptvsimple IPTV DEPLIBS)
+build_addon(pvr.iptvarchive IPTV DEPLIBS)
 
 include(CPack)

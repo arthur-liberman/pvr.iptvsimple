@@ -2,7 +2,7 @@
 [![Build Status](https://dev.azure.com/teamkodi/kodi-pvr/_apis/build/status/kodi-pvr.pvr.iptvsimple?branchName=Leia)](https://dev.azure.com/teamkodi/kodi-pvr/_build/latest?definitionId=57&branchName=Leia)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/5120/badge.svg)](https://scan.coverity.com/projects/5120)
 
-# IPTV Simple PVR
+# IPTV Archive PVR
 
 IPTV Live TV and Radio PVR client addon for [Kodi](https://kodi.tv)
 
