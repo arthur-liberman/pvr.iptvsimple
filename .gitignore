@@ -22,3 +22,6 @@ pvr.iptvsimple/addon.xml
 .cproject
 .project
 .settings/
+
+# vscode
+.vscode
