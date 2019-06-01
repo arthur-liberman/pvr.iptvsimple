@@ -40,6 +40,7 @@ private:
     time_t      GetEpgBufferFromSettings(int setting) const;
     void        FormatTime(const char ch, const struct tm *pTime, std::string &fmt) const;
     void        FormatUtc(const char *str, time_t tTime, std::string &fmt) const;
+    void        FormatOffset(time_t tTime, std::string &fmt) const;
 
     bool        m_bIsEnabled = false;
     std::string m_sUrlFormat;

@@ -19,6 +19,7 @@
  */
 
 #include <string>
+#include <regex>
 #include <ctime>
 
 #include "ArchiveConfig.h"
@@ -87,6 +88,7 @@ std::string CArchiveConfig::FormatDateTime(time_t dateTimeEpg, const std::string
     FormatUtc("{utc}", dateTimeEpg, fmt);
     FormatUtc("${start}", dateTimeEpg, fmt);
     FormatUtc("{lutc}", dateTimeNow, fmt);
+    FormatOffset(dateTimeNow - dateTimeEpg, fmt);
     m_XBMC->Log(LOG_DEBUG, "CArchiveConfig::FormatDateTime - \"%s\"", fmt.c_str());
     return fmt;
 }
@@ -113,6 +115,33 @@ void CArchiveConfig::FormatUtc(const char *str, time_t tTime, std::string &fmt) 
         char buff[256];
         snprintf(buff, sizeof(buff), "%lu", tTime);
         fmt.replace(pos, strlen(str), buff);
+    }
+}
+
+void CArchiveConfig::FormatOffset(time_t tTime, std::string &fmt) const
+{
+    const std::string regexStr = ".*(\\{offset:(\\d+)\\}).*";
+    std::cmatch mr;
+    std::regex rx(regexStr);
+    if (std::regex_match(fmt.c_str(), mr, rx) && mr.length() >= 3)
+    {
+        std::string offsetExp = mr[1].first;
+        std::string second = mr[1].second;
+        if (second.length() > 0)
+            offsetExp = offsetExp.erase(offsetExp.find(second));
+        std::string dividerStr = mr[2].first;
+        second = mr[2].second;
+        if (second.length() > 0)
+            dividerStr = dividerStr.erase(dividerStr.find(second));
+
+        const time_t divider = stoi(dividerStr);
+        if (divider != 0)
+        {
+            time_t offset = tTime / divider;
+            if (offset < 0)
+                offset = 0;
+            fmt.replace(fmt.find(offsetExp), offsetExp.length(), std::to_string(offset));
+        }
     }
 }
 
