@@ -38,10 +38,6 @@ void CArchiveConfig::ReadSettings(CHelper_libXBMC_addon *XBMC)
     {
         m_sUrlFormat = std::string(buffer);
     }
-    else
-    {
-        m_bIsEnabled = false;
-    }
     int temp = 0;
     if (XBMC->GetSetting("archTimeshiftBuffer", &temp))
     {

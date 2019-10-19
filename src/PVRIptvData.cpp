@@ -975,8 +975,7 @@ PVR_ERROR PVRIptvData::GetChannels(ADDON_HANDLE handle, bool bRadio)
       xbmcChannel.iEncryptionSystem = channel.iEncryptionSystem;
       strncpy(xbmcChannel.strIconPath, channel.strLogoPath.c_str(), sizeof(xbmcChannel.strIconPath) - 1);
       xbmcChannel.bIsHidden         = false;
-      if (IsArchiveSupportedOnChannel(channel))
-        strncpy(xbmcChannel.strInputFormat, "iptv/hasarchive", sizeof(xbmcChannel.strInputFormat) - 1);
+      strncpy(xbmcChannel.strInputFormat, IsArchiveSupportedOnChannel(channel) ? "iptv/hasarchive" : "", sizeof(xbmcChannel.strInputFormat) - 1);
 
       PVR->TransferChannelEntry(handle, &xbmcChannel);
     }
@@ -1641,11 +1640,14 @@ bool PVRIptvData::GetLiveEPGTag(const PVRIptvChannel &myChannel, EPG_TAG &tag, b
 
 bool PVRIptvData::IsArchiveSupportedOnChannel(const PVRIptvChannel &channel)
 {
-  return !(g_ArchiveConfig.GetArchiveUrlFormat().empty() && channel.strCatchupSource.empty());
+  return g_ArchiveConfig.IsEnabled() && !(g_ArchiveConfig.GetArchiveUrlFormat().empty() && channel.strCatchupSource.empty());
 }
 
 bool PVRIptvData::IsArchiveSupportedOnChannel(int uniqueId)
 {
+  if (!g_ArchiveConfig.IsEnabled())
+    return false;
+
   bool ret = !g_ArchiveConfig.GetArchiveUrlFormat().empty();
   PVRIptvChannel channel = {0};
   if (!ret && GetChannel(uniqueId, channel))
