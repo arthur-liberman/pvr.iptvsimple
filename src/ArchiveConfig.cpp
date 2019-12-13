@@ -74,7 +74,7 @@ std::string CArchiveConfig::FormatDateTime(time_t dateTimeEpg, const std::string
     const time_t dateTimeNow = std::time(0);
     struct tm dateTime = {0};
     localtime_r(&dateTimeEpg, &dateTime);
-    std::string fmt = (url + m_sUrlFormat);
+    std::string fmt(url);
     FormatTime('Y', &dateTime, fmt);
     FormatTime('m', &dateTime, fmt);
     FormatTime('d', &dateTime, fmt);
@@ -84,6 +84,8 @@ std::string CArchiveConfig::FormatDateTime(time_t dateTimeEpg, const std::string
     FormatUtc("{utc}", dateTimeEpg, fmt);
     FormatUtc("${start}", dateTimeEpg, fmt);
     FormatUtc("{lutc}", dateTimeNow, fmt);
+    FormatUtc("${timestamp}", dateTimeNow, fmt);
+    FormatUtc("${offset}", dateTimeNow - dateTimeEpg, fmt);
     FormatOffset(dateTimeNow - dateTimeEpg, fmt);
     m_XBMC->Log(LOG_DEBUG, "CArchiveConfig::FormatDateTime - \"%s\"", fmt.c_str());
     return fmt;
