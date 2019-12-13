@@ -64,6 +64,16 @@ struct PVRIptvEpgChannel
   std::vector<PVRIptvEpgEntry> epg;
 };
 
+enum CatchupTypes
+{
+  CATCHUP_DEFAULT,
+  CATCHUP_APPEND,
+  CATCHUP_TIMESHIFT,
+  CATCHUP_XC,
+  CATCHUP_EZTS,
+  CATCHUP_FS,
+};
+
 struct PVRIptvChannel
 {
   bool        bRadio;
@@ -82,6 +92,7 @@ struct PVRIptvChannel
   std::map<std::string, std::string> properties;
   EPG_TAG     epgTag;
   int         iCatchupLength;
+  CatchupTypes catchupType;
   time_t      timeshiftStartTime;
 };
 

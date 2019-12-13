@@ -51,6 +51,7 @@
 #define TVG_INFO_SHIFT_MARKER   "tvg-shift="
 #define TVG_INFO_CHNO_MARKER    "tvg-chno="
 #define GROUP_NAME_MARKER       "group-title="
+#define CATCHUP_TYPE            "catchup="
 #define CATCHUP_SOURCE          "catchup-source="
 #define CATCHUP_DAYS            "catchup-days="
 #define KODIPROP_MARKER         "#KODIPROP:"
@@ -610,6 +611,10 @@ bool PVRIptvData::LoadPlayList(void)
   std::vector<int> iCurrentGroupId;
   std::string iChannelGroupName = "";
 
+  std::string globalStrCatchupType = "";
+  std::string globalStrCatchupSource = "";
+  std::string globalStrCatchupDays = "";
+
   PVRIptvChannel tmpChannel = {0};
   tmpChannel.strTvgId       = "";
   tmpChannel.strChannelName = "";
@@ -640,6 +645,10 @@ bool PVRIptvData::LoadPlayList(void)
       {
         double fTvgShift = atof(ReadMarkerValue(strLine, TVG_INFO_SHIFT_MARKER).c_str());
         iEPGTimeShift = (int) (fTvgShift * 3600.0);
+
+        globalStrCatchupType = ReadMarkerValue(strLine, CATCHUP_TYPE);
+        globalStrCatchupSource = ReadMarkerValue(strLine, CATCHUP_SOURCE);
+        globalStrCatchupDays = ReadMarkerValue(strLine, CATCHUP_DAYS);
         continue;
       }
       else
@@ -662,6 +671,7 @@ bool PVRIptvData::LoadPlayList(void)
       std::string strTvgShift  = "";
       std::string strGroupName = "";
       std::string strRadio     = "";
+      std::string strCatchupType   = "";
       std::string strCatchupSource = "";
       std::string strCatchupDays   = "";
 
@@ -691,6 +701,7 @@ bool PVRIptvData::LoadPlayList(void)
         strGroupName  = ReadMarkerValue(strInfoLine, GROUP_NAME_MARKER);
         strRadio      = ReadMarkerValue(strInfoLine, RADIO_MARKER);
         strTvgShift   = ReadMarkerValue(strInfoLine, TVG_INFO_SHIFT_MARKER);
+        strCatchupType = ReadMarkerValue(strInfoLine, CATCHUP_TYPE);
         strCatchupSource = ReadMarkerValue(strInfoLine, CATCHUP_SOURCE);
         strCatchupDays   = ReadMarkerValue(strInfoLine, CATCHUP_DAYS);
 
@@ -719,7 +730,7 @@ bool PVRIptvData::LoadPlayList(void)
         tmpChannel.strTvgId   = strTvgId;
         tmpChannel.strTvgName = XBMC->UnknownToUTF8(strTvgName.c_str());
         tmpChannel.strTvgLogo = XBMC->UnknownToUTF8(strTvgLogo.c_str());
-        tmpChannel.strCatchupSource = XBMC->UnknownToUTF8(strCatchupSource.c_str());
+        tmpChannel.strCatchupSource = !strCatchupSource.empty() ? strCatchupSource : globalStrCatchupSource;
         tmpChannel.iTvgShift  = (int)(fTvgShift * 3600.0);
         tmpChannel.bRadio     = bRadio;
 
@@ -737,10 +748,29 @@ bool PVRIptvData::LoadPlayList(void)
           tmpChannel.iTvgShift = iEPGTimeShift;
         }
 
+        if (strCatchupDays.empty())
+          strCatchupDays = globalStrCatchupDays;
+
         if (!strCatchupDays.empty())
         {
           tmpChannel.iCatchupLength = 24 * 60 * 60 * atoi(strCatchupDays.c_str());
         }
+
+        if (strCatchupType.empty())
+          strCatchupType = globalStrCatchupType;
+
+        if (strCatchupType == "append")
+          tmpChannel.catchupType = CATCHUP_APPEND;
+        else if (strCatchupType == "timeshift")
+          tmpChannel.catchupType = CATCHUP_TIMESHIFT;
+        else if (strCatchupType == "xc")
+          tmpChannel.catchupType = CATCHUP_XC;
+        else if (strCatchupType == "ez-ts")
+          tmpChannel.catchupType = CATCHUP_EZTS;
+        else if (strCatchupType == "fs")
+          tmpChannel.catchupType = CATCHUP_FS;
+        else
+          tmpChannel.catchupType = CATCHUP_DEFAULT;
 
         iChannelGroupName = strGroupName;
         ProcessGroupLine(strGroupName, bRadio, iCurrentGroupId);
@@ -817,6 +847,7 @@ bool PVRIptvData::LoadPlayList(void)
         channel.strStreamURL = strLine;
       }
       
+      channel.catchupType       = tmpChannel.catchupType;
       channel.strCatchupSource  = tmpChannel.strCatchupSource;
       channel.strGroupName      = iChannelGroupName;
       channel.iEncryptionSystem = 0;
@@ -848,6 +879,9 @@ bool PVRIptvData::LoadPlayList(void)
       tmpChannel.iTvgShift      = 0;
       tmpChannel.bRadio         = false;
       tmpChannel.properties.clear();
+      tmpChannel.catchupType = CATCHUP_DEFAULT;
+      tmpChannel.strCatchupSource = "";
+      tmpChannel.iCatchupLength = 0;
       bIsRealTime = true;
     }
   }
@@ -1026,6 +1060,7 @@ bool PVRIptvData::GetChannel(int uniqueId, PVRIptvChannel &myChannel)
       myChannel.strChannelName    = thisChannel.strChannelName;
       myChannel.strLogoPath       = thisChannel.strLogoPath;
       myChannel.strStreamURL      = thisChannel.strStreamURL;
+      myChannel.catchupType       = thisChannel.catchupType;
       myChannel.strCatchupSource  = thisChannel.strCatchupSource;
       myChannel.iCatchupLength    = thisChannel.iCatchupLength;
       myChannel.strGroupName      = thisChannel.strGroupName;
@@ -1609,14 +1644,24 @@ std::string PVRIptvData::GetEpgTagUrl(const EPG_TAG *tag, PVRIptvChannel &myChan
 
 std::string PVRIptvData::BuildEpgTagUrl(const EPG_TAG *tag, const PVRIptvChannel &channel)
 {
-    std::string startTimeUrl;
+    std::string startTimeUrl = channel.strStreamURL;
     time_t timeNow = time(0);
     time_t offset = tag->startTime + m_iEpgUrlTimeOffset;
     if (tag->startTime > 0 && offset < timeNow - 5)
-      startTimeUrl = g_ArchiveConfig.FormatDateTime(offset - channel.iTvgShift,
-                      !channel.strCatchupSource.empty() ? channel.strCatchupSource : channel.strStreamURL);
-    else
-      startTimeUrl = channel.strStreamURL;
+    {
+      std::string urlTemplate;
+      switch (channel.catchupType)
+      {
+        case CATCHUP_APPEND:
+          urlTemplate = channel.strStreamURL + channel.strCatchupSource;
+          break;
+        case CATCHUP_DEFAULT:
+        default:
+          urlTemplate = g_ArchiveConfig.GetArchiveUrlFormat().empty() ? channel.strCatchupSource
+           : channel.strStreamURL + g_ArchiveConfig.GetArchiveUrlFormat();
+      }
+      startTimeUrl = g_ArchiveConfig.FormatDateTime(offset - channel.iTvgShift, urlTemplate);
+    }
     return startTimeUrl;
 }
 
