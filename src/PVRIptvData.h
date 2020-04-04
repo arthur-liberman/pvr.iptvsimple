@@ -133,8 +133,8 @@ public:
   virtual long long GetEpgUrlTimeOffset(void) { return m_iEpgUrlTimeOffset; }
   virtual void      SetEpgUrlTimeOffset(long long offset) { m_iEpgUrlTimeOffset = offset; }
   virtual bool      GetLiveEPGTag(const PVRIptvChannel &myChannel, EPG_TAG &tag, bool addTvgShift);
-  virtual bool      IsArchiveSupportedOnChannel(const PVRIptvChannel &channel);
   virtual bool      IsArchiveSupportedOnChannel(int uniqueId);
+  virtual bool      IsArchiveSupportedOnChannel(const PVRIptvChannel &channel);
 
 protected:
   virtual bool                 LoadPlayList(void);
