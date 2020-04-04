@@ -760,7 +760,7 @@ bool PVRIptvData::LoadPlayList(void)
 
         if (strCatchupType == "append")
           tmpChannel.catchupType = CATCHUP_APPEND;
-        else if (strCatchupType == "timeshift")
+        else if (strCatchupType == "shift" || strCatchupType == "timeshift")
           tmpChannel.catchupType = CATCHUP_TIMESHIFT;
         else if (strCatchupType == "xc")
           tmpChannel.catchupType = CATCHUP_XC;
@@ -1643,6 +1643,12 @@ std::string PVRIptvData::BuildEpgTagUrl(const EPG_TAG *tag, const PVRIptvChannel
         case CATCHUP_APPEND:
           urlTemplate = channel.strStreamURL + channel.strCatchupSource;
           break;
+        case CATCHUP_TIMESHIFT:
+          {
+            std::string querySep = (channel.strStreamURL.find("?") == std::string::npos) ? "?" : "&";
+            urlTemplate = channel.strStreamURL + querySep + "utc={utc}&lutc={lutc}";
+            break;
+          }
         case CATCHUP_DEFAULT:
         default:
           urlTemplate = g_ArchiveConfig.GetArchiveUrlFormat().empty() ? channel.strCatchupSource
@@ -1683,19 +1689,28 @@ bool PVRIptvData::GetLiveEPGTag(const PVRIptvChannel &myChannel, EPG_TAG &tag, b
   return ret;
 }
 
-bool PVRIptvData::IsArchiveSupportedOnChannel(const PVRIptvChannel &channel)
-{
-  return g_ArchiveConfig.IsEnabled() && !(g_ArchiveConfig.GetArchiveUrlFormat().empty() && channel.strCatchupSource.empty());
-}
-
 bool PVRIptvData::IsArchiveSupportedOnChannel(int uniqueId)
 {
   if (!g_ArchiveConfig.IsEnabled())
     return false;
 
-  bool ret = !g_ArchiveConfig.GetArchiveUrlFormat().empty();
   PVRIptvChannel channel = {0};
-  if (!ret && GetChannel(uniqueId, channel))
-    ret = !channel.strCatchupSource.empty();
-  return ret;
+  return GetChannel(uniqueId, channel) && IsArchiveSupportedOnChannel(channel);
+}
+
+bool PVRIptvData::IsArchiveSupportedOnChannel(const PVRIptvChannel &channel)
+{
+  if (!g_ArchiveConfig.IsEnabled())
+    return false;
+
+  switch (channel.catchupType)
+  {
+    case CATCHUP_APPEND:
+      return !channel.strCatchupSource.empty();
+    case CATCHUP_TIMESHIFT:
+      return true;
+    case CATCHUP_DEFAULT:
+    default:
+      return !g_ArchiveConfig.GetArchiveUrlFormat().empty() || !channel.strCatchupSource.empty();
+  }
 }
