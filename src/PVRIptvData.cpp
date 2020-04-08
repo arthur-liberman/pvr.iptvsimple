@@ -1644,31 +1644,38 @@ std::string PVRIptvData::GetEpgTagUrl(const EPG_TAG *tag, PVRIptvChannel &myChan
 
 std::string PVRIptvData::BuildEpgTagUrl(const EPG_TAG *tag, const PVRIptvChannel &channel)
 {
-    std::string startTimeUrl = channel.strStreamURL;
+    std::string headers;
+    std::string streamUrl = channel.strStreamURL;
     time_t timeNow = time(0);
     time_t offset = tag->startTime + m_iEpgUrlTimeOffset;
+    std::size_t pos = streamUrl.find("|");
+    if (pos != std::string::npos)
+    {
+      headers = streamUrl.substr(pos);
+      streamUrl = streamUrl.substr(0, pos);
+    }
     if (tag->startTime > 0 && offset < timeNow - 5)
     {
       std::string urlTemplate;
       switch (channel.catchupType)
       {
         case CATCHUP_APPEND:
-          urlTemplate = channel.strStreamURL + channel.strCatchupSource;
+          urlTemplate = streamUrl + channel.strCatchupSource;
           break;
         case CATCHUP_TIMESHIFT:
           {
-            std::string querySep = (channel.strStreamURL.find("?") == std::string::npos) ? "?" : "&";
-            urlTemplate = channel.strStreamURL + querySep + "utc={utc}&lutc={lutc}";
+            std::string querySep = (streamUrl.find("?") == std::string::npos) ? "?" : "&";
+            urlTemplate = streamUrl + querySep + "utc={utc}&lutc={lutc}";
             break;
           }
         case CATCHUP_DEFAULT:
         default:
           urlTemplate = g_ArchiveConfig.GetArchiveUrlFormat().empty() ? channel.strCatchupSource
-           : channel.strStreamURL + g_ArchiveConfig.GetArchiveUrlFormat();
+           : streamUrl + g_ArchiveConfig.GetArchiveUrlFormat();
       }
-      startTimeUrl = g_ArchiveConfig.FormatDateTime(offset - channel.iTvgShift, urlTemplate);
+      streamUrl = g_ArchiveConfig.FormatDateTime(offset - channel.iTvgShift, urlTemplate);
     }
-    return startTimeUrl;
+    return streamUrl + headers;
 }
 
 bool PVRIptvData::GetLiveEPGTag(const PVRIptvChannel &myChannel, EPG_TAG &tag, bool addTvgShift)
