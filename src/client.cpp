@@ -457,10 +457,11 @@ PVR_ERROR GetEPGTagStreamProperties(const EPG_TAG* tag,
   *iPropertiesCount = 0;
   XBMC->Log(LOG_DEBUG, "GetEPGTagStreamProperties - GetPlayEpgAsLive is %s",
             g_ArchiveConfig.GetPlayEpgAsLive() ? "enabled" : "disabled");
+  std::string epgStrUrl;
   if (g_ArchiveConfig.GetPlayEpgAsLive())
   {
     g_bResetUrlOffset = false;
-    m_data->GetEpgTagUrl(tag, m_currentChannel);
+    epgStrUrl = m_data->GetEpgTagUrl(tag, m_currentChannel);
     time_t timeNow = time(0);
     time_t programOffset = timeNow - m_currentChannel.epgTag.startTime;
     time_t timeshiftBuffer = std::max(programOffset, g_ArchiveConfig.GetTimeshiftBuffer());
@@ -472,7 +473,7 @@ PVR_ERROR GetEPGTagStreamProperties(const EPG_TAG* tag,
   else if (g_bResetUrlOffset)
   {
     g_bResetUrlOffset = false;
-    m_data->GetEpgTagUrl(tag, m_currentChannel);
+    epgStrUrl = m_data->GetEpgTagUrl(tag, m_currentChannel);
     const time_t beginBuffer = g_ArchiveConfig.GetEpgBeginBuffer();
     const time_t endBuffer = g_ArchiveConfig.GetEpgEndBuffer();
     m_currentChannel.timeshiftStartTime = m_currentChannel.epgTag.startTime - beginBuffer;
@@ -480,7 +481,11 @@ PVR_ERROR GetEPGTagStreamProperties(const EPG_TAG* tag,
     m_currentChannel.epgTag.endTime += endBuffer;
     m_data->SetEpgUrlTimeOffset(beginBuffer);
   }
-  std::string epgStrUrl = m_data->GetEpgTagUrl(nullptr, m_currentChannel);
+  else
+  {
+    epgStrUrl = m_data->GetEpgTagUrl(nullptr, m_currentChannel);
+  }
+
   if (!epgStrUrl.empty())
   {
     g_bIsArchive = true;
