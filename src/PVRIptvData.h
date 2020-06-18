@@ -166,6 +166,8 @@ private:
   static bool ParseXmltvNsEpisodeNumberInfo(const std::string& episodeNumberString, PVRIptvEpgEntry& entry);
   static bool ParseOnScreenEpisodeNumberInfo(const std::string& episodeNumberString, PVRIptvEpgEntry& entry);
 
+  virtual std::string GenerateFlussonicCatchupSource(const std::string& url);
+  virtual std::string GenerateXtreamCodesCatchupSource(const std::string& url);
   virtual void ProcessGroupLine(std::string groupsLine, bool bRadio, std::vector<int>& iCurrentGroupId);
 
   bool                              m_bTSOverride;

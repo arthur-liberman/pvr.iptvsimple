@@ -69,7 +69,7 @@ void CArchiveConfig::ReadSettings(CHelper_libXBMC_addon *XBMC)
     }
 }
 
-std::string CArchiveConfig::FormatDateTime(time_t dateTimeEpg, const std::string &url) const
+std::string CArchiveConfig::FormatDateTime(time_t dateTimeEpg, time_t duration, const std::string &url) const
 {
     const time_t dateTimeNow = std::time(0);
     struct tm dateTime = {0};
@@ -86,7 +86,9 @@ std::string CArchiveConfig::FormatDateTime(time_t dateTimeEpg, const std::string
     FormatUtc("{lutc}", dateTimeNow, fmt);
     FormatUtc("${timestamp}", dateTimeNow, fmt);
     FormatUtc("${offset}", dateTimeNow - dateTimeEpg, fmt);
-    FormatOffset(dateTimeNow - dateTimeEpg, fmt);
+    FormatUtc("${duration}", duration, fmt);
+    FormatUnits(duration, "duration", fmt);
+    FormatUnits(dateTimeNow - dateTimeEpg, "offset", fmt);
     m_XBMC->Log(LOG_DEBUG, "CArchiveConfig::FormatDateTime - \"%s\"", fmt.c_str());
     return fmt;
 }
@@ -116,9 +118,9 @@ void CArchiveConfig::FormatUtc(const char *str, time_t tTime, std::string &fmt) 
     }
 }
 
-void CArchiveConfig::FormatOffset(time_t tTime, std::string &fmt) const
+void CArchiveConfig::FormatUnits(time_t tTime, const std::string& name, std::string &fmt) const
 {
-    const std::string regexStr = ".*(\\{offset:(\\d+)\\}).*";
+    const std::string regexStr = ".*(\\{" + name + ":(\\d+)\\}).*";
     std::cmatch mr;
     std::regex rx(regexStr);
     if (std::regex_match(fmt.c_str(), mr, rx) && mr.length() >= 3)

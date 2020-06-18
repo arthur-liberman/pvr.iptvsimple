@@ -29,7 +29,7 @@ class CArchiveConfig
 public:
     void        ReadSettings(ADDON::CHelper_libXBMC_addon *XBMC);
     bool        IsEnabled() const { return m_bIsEnabled; }
-    std::string FormatDateTime(time_t epgTime, const std::string &url) const;
+    std::string FormatDateTime(time_t epgTime, time_t duration, const std::string &url) const;
     std::string GetArchiveUrlFormat() const { return m_sUrlFormat; }
     time_t      GetTimeshiftBuffer() const { return std::max(static_cast<time_t>(0), m_tTimeshiftBuffer); }
     time_t      GetEpgBeginBuffer() const { return std::max(static_cast<time_t>(0), m_tEpgBeginBuffer); }
@@ -40,7 +40,7 @@ private:
     time_t      GetEpgBufferFromSettings(int setting) const;
     void        FormatTime(const char ch, const struct tm *pTime, std::string &fmt) const;
     void        FormatUtc(const char *str, time_t tTime, std::string &fmt) const;
-    void        FormatOffset(time_t tTime, std::string &fmt) const;
+    void        FormatUnits(time_t tTime, const std::string& name, std::string &fmt) const;
 
     bool        m_bIsEnabled = false;
     std::string m_sUrlFormat;

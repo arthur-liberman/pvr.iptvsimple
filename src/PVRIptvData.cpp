@@ -1657,6 +1657,9 @@ std::string PVRIptvData::BuildEpgTagUrl(const EPG_TAG *tag, const PVRIptvChannel
     if (tag->startTime > 0 && offset < timeNow - 5)
     {
       std::string urlTemplate;
+      time_t duration = 60 * 60; // default one hour
+      if (tag->endTime > 0)
+        duration = std::min(timeNow, tag->endTime) - offset;
       switch (channel.catchupType)
       {
         case CATCHUP_APPEND:
@@ -1668,14 +1671,99 @@ std::string PVRIptvData::BuildEpgTagUrl(const EPG_TAG *tag, const PVRIptvChannel
             urlTemplate = streamUrl + querySep + "utc={utc}&lutc={lutc}";
             break;
           }
+        case CATCHUP_FS:
+          urlTemplate = GenerateFlussonicCatchupSource(streamUrl);
+          break;
+        case CATCHUP_XC:
+          urlTemplate = GenerateXtreamCodesCatchupSource(streamUrl);
+          break;
         case CATCHUP_DEFAULT:
         default:
           urlTemplate = g_ArchiveConfig.GetArchiveUrlFormat().empty() ? channel.strCatchupSource
            : streamUrl + g_ArchiveConfig.GetArchiveUrlFormat();
       }
-      streamUrl = g_ArchiveConfig.FormatDateTime(offset - channel.iTvgShift, urlTemplate);
+      streamUrl = g_ArchiveConfig.FormatDateTime(offset - channel.iTvgShift, duration, urlTemplate);
     }
     return streamUrl + headers;
+}
+
+std::string PVRIptvData::GenerateFlussonicCatchupSource(const std::string& url)
+{
+  // Example stream and catchup URLs
+  // stream:  http://ch01.spr24.net/151/mpegts?token=my_token
+  // catchup: http://ch01.spr24.net/151/timeshift_abs-{utc}.ts?token=my_token
+  // stream:  http://list.tv:8888/325/index.m3u8?token=secret
+  // catchup: http://list.tv:8888/325/timeshift_rel-{offset:1}.m3u8?token=secret
+  // stream:  http://list.tv:8888/325/mono.m3u8?token=secret
+  // catchup: http://list.tv:8888/325/mono-timeshift_rel-{offset:1}.m3u8?token=secret
+
+  static std::regex fsRegex("^(http[s]?://[^/]+)/([^/]+)/([^/]*)(mpegts|\\.m3u8)(\\?.+=.+)?$");
+  std::smatch matches;
+  std::string urlTemplate = url;
+
+  if (std::regex_match(url, matches, fsRegex))
+  {
+    if (matches.size() == 6)
+    {
+      const std::string fsHost = matches[1].str();
+      const std::string fsChannelId = matches[2].str();
+      const std::string fsListType = matches[3].str();
+      const std::string fsStreamType = matches[4].str();
+      const std::string fsUrlAppend = matches[5].str();
+
+      bool isCatchupTSStream = fsStreamType == "mpegts";
+      if (isCatchupTSStream)
+      {
+        urlTemplate = fsHost + "/" + fsChannelId + "/timeshift_abs-${start}.ts" + fsUrlAppend;
+      }
+      else
+      {
+        if (fsListType == "index")
+          urlTemplate = fsHost + "/" + fsChannelId + "/timeshift_rel-{offset:1}.m3u8" + fsUrlAppend;
+        else
+          urlTemplate = fsHost + "/" + fsChannelId + "/" + fsListType + "-timeshift_rel-{offset:1}.m3u8" + fsUrlAppend;
+      }
+    }
+  }
+
+  return urlTemplate;
+}
+
+std::string PVRIptvData::GenerateXtreamCodesCatchupSource(const std::string& url)
+{
+  // Example stream and catchup URLs
+  // stream:  http://list.tv:8080/my@account.xc/my_password/1477
+  // catchup: http://list.tv:8080/timeshift/my@account.xc/my_password/{duration}/{Y}-{m}-{d}:{H}-{M}/1477.ts
+  // stream:  http://list.tv:8080/live/my@account.xc/my_password/1477.m3u8
+  // catchup: http://list.tv:8080/timeshift/my@account.xc/my_password/{duration}/{Y}-{m}-{d}:{H}-{M}/1477.m3u8
+
+  static std::regex xcRegex("^(http[s]?://[^/]+)/(?:live/)?([^/]+)/([^/]+)/([^/\\.]+)(\\.m3u[8]?)?$");
+  std::smatch matches;
+  std::string urlTemplate = url;
+
+  if (std::regex_match(url, matches, xcRegex))
+  {
+    if (matches.size() == 6)
+    {
+      const std::string xcHost = matches[1].str();
+      const std::string xcUsername = matches[2].str();
+      const std::string xcPasssword = matches[3].str();
+      const std::string xcChannelId = matches[4].str();
+      std::string xcExtension;
+      if (matches[5].matched)
+        xcExtension = matches[5].str();
+
+      if (xcExtension.empty())
+      {
+        xcExtension = ".ts";
+      }
+
+      urlTemplate = xcHost + "/timeshift/" + xcUsername + "/" + xcPasssword +
+                        "/{duration:60}/{Y}-{m}-{d}:{H}-{M}/" + xcChannelId + xcExtension;
+    }
+  }
+
+  return urlTemplate;
 }
 
 bool PVRIptvData::GetLiveEPGTag(const PVRIptvChannel &myChannel, EPG_TAG &tag, bool addTvgShift)
