@@ -29,10 +29,16 @@ using namespace ADDON;
 void CArchiveConfig::ReadSettings(CHelper_libXBMC_addon *XBMC)
 {
     m_XBMC = XBMC;
-    if (!XBMC->GetSetting("archEnable", &m_bIsEnabled))
+    if (!XBMC->GetSetting("archType", &m_iArchiveType))
     {
-        m_bIsEnabled = false;
+        m_iArchiveType = CATCHUP_DEFAULT;
+        bool legacyEnabled;
+        if (XBMC->GetSetting("archEnable", &legacyEnabled) && legacyEnabled)
+        {
+            m_iArchiveType = CATCHUP_CUSTOM;
+        }
     }
+    m_bIsEnabled = GetArchiveType() > CATCHUP_DISABLED;
     char buffer[1024];
     if (XBMC->GetSetting("archUrlFormat", &buffer))
     {
