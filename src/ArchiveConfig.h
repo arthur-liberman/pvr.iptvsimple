@@ -24,30 +24,44 @@
 #include "p8-platform/os.h"
 #include "libXBMC_addon.h"
 
+enum CatchupTypes
+{
+  CATCHUP_DISABLED,
+  CATCHUP_DEFAULT,
+  CATCHUP_CUSTOM,
+  CATCHUP_APPEND,
+  CATCHUP_TIMESHIFT,
+  CATCHUP_FS,
+  CATCHUP_XC,
+  CATCHUP_EZTS,
+};
+
 class CArchiveConfig
 {
 public:
-    void        ReadSettings(ADDON::CHelper_libXBMC_addon *XBMC);
-    bool        IsEnabled() const { return m_bIsEnabled; }
-    std::string FormatDateTime(time_t epgTime, time_t duration, const std::string &url) const;
-    std::string GetArchiveUrlFormat() const { return m_sUrlFormat; }
-    time_t      GetTimeshiftBuffer() const { return std::max(static_cast<time_t>(0), m_tTimeshiftBuffer); }
-    time_t      GetEpgBeginBuffer() const { return std::max(static_cast<time_t>(0), m_tEpgBeginBuffer); }
-    time_t      GetEpgEndBuffer() const { return std::max(static_cast<time_t>(0), m_tEpgEndBuffer); }
-    bool        GetPlayEpgAsLive() const { return m_bPlayEpgAsLive; }
+    void            ReadSettings(ADDON::CHelper_libXBMC_addon *XBMC);
+    bool            IsEnabled() const { return m_bIsEnabled; }
+    std::string     FormatDateTime(time_t epgTime, time_t duration, const std::string &url) const;
+    std::string     GetArchiveUrlFormat() const { return m_sUrlFormat; }
+    CatchupTypes    GetArchiveType() const { return static_cast<CatchupTypes>(m_iArchiveType); }
+    time_t          GetTimeshiftBuffer() const { return std::max(static_cast<time_t>(0), m_tTimeshiftBuffer); }
+    time_t          GetEpgBeginBuffer() const { return std::max(static_cast<time_t>(0), m_tEpgBeginBuffer); }
+    time_t          GetEpgEndBuffer() const { return std::max(static_cast<time_t>(0), m_tEpgEndBuffer); }
+    bool            GetPlayEpgAsLive() const { return m_bPlayEpgAsLive; }
 
 private:
-    time_t      GetEpgBufferFromSettings(int setting) const;
-    void        FormatTime(const char ch, const struct tm *pTime, std::string &fmt) const;
-    void        FormatUtc(const char *str, time_t tTime, std::string &fmt) const;
-    void        FormatUnits(time_t tTime, const std::string& name, std::string &fmt) const;
+    time_t          GetEpgBufferFromSettings(int setting) const;
+    void            FormatTime(const char ch, const struct tm *pTime, std::string &fmt) const;
+    void            FormatUtc(const char *str, time_t tTime, std::string &fmt) const;
+    void            FormatUnits(time_t tTime, const std::string& name, std::string &fmt) const;
 
-    bool        m_bIsEnabled = false;
-    std::string m_sUrlFormat;
-    time_t      m_tTimeshiftBuffer = -1;
-    time_t      m_tEpgBeginBuffer = -1;
-    time_t      m_tEpgEndBuffer = -1;
-    bool        m_bPlayEpgAsLive = false;
+    bool            m_bIsEnabled = false;
+    std::string     m_sUrlFormat;
+    int             m_iArchiveType = 1;
+    time_t          m_tTimeshiftBuffer = -1;
+    time_t          m_tEpgBeginBuffer = -1;
+    time_t          m_tEpgEndBuffer = -1;
+    bool            m_bPlayEpgAsLive = false;
 
     ADDON::CHelper_libXBMC_addon *m_XBMC = nullptr;
 };

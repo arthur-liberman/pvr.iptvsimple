@@ -215,3 +215,39 @@ msgstr ""
 msgctxt "#30096"
 msgid "7 days"
 msgstr ""
+
+msgctxt "#30100"
+msgid "Archive type"
+msgstr ""
+
+msgctxt "#30101"
+msgid "Disabled"
+msgstr ""
+
+msgctxt "#30102"
+msgid "Default"
+msgstr ""
+
+msgctxt "#30103"
+msgid "Custom"
+msgstr ""
+
+msgctxt "#30104"
+msgid "Append"
+msgstr ""
+
+msgctxt "#30105"
+msgid "Shift (SIPTV)"
+msgstr ""
+
+msgctxt "#30106"
+msgid "Flussonic"
+msgstr ""
+
+msgctxt "#30107"
+msgid "Xtream Codes"
+msgstr ""
+
+msgctxt "#30108"
+msgid "Ezserver"
+msgstr ""

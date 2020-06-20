@@ -64,16 +64,6 @@ struct PVRIptvEpgChannel
   std::vector<PVRIptvEpgEntry> epg;
 };
 
-enum CatchupTypes
-{
-  CATCHUP_DEFAULT,
-  CATCHUP_APPEND,
-  CATCHUP_TIMESHIFT,
-  CATCHUP_XC,
-  CATCHUP_EZTS,
-  CATCHUP_FS,
-};
-
 struct PVRIptvChannel
 {
   bool        bRadio;

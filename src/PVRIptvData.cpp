@@ -36,10 +36,10 @@
 
 #include "zlib.h"
 #include "rapidxml/rapidxml.hpp"
-#include "PVRIptvData.h"
 #include "p8-platform/util/StringUtils.h"
-#include "client.h"
 #include "ArchiveConfig.h"
+#include "PVRIptvData.h"
+#include "client.h"
 
 #define M3U_START_MARKER        "#EXTM3U"
 #define M3U_INFO_MARKER         "#EXTINF"
@@ -755,21 +755,28 @@ bool PVRIptvData::LoadPlayList(void)
           tmpChannel.iCatchupLength = 24 * 60 * 60 * atoi(strCatchupDays.c_str());
         }
 
-        if (strCatchupType.empty())
-          strCatchupType = globalStrCatchupType;
+        if (g_ArchiveConfig.GetArchiveType() == CATCHUP_DEFAULT)
+        {
+          if (strCatchupType.empty())
+            strCatchupType = globalStrCatchupType;
 
-        if (strCatchupType == "append")
-          tmpChannel.catchupType = CATCHUP_APPEND;
-        else if (strCatchupType == "shift" || strCatchupType == "timeshift")
-          tmpChannel.catchupType = CATCHUP_TIMESHIFT;
-        else if (strCatchupType == "xc")
-          tmpChannel.catchupType = CATCHUP_XC;
-        else if (strCatchupType == "ez-ts")
-          tmpChannel.catchupType = CATCHUP_EZTS;
-        else if (strCatchupType == "fs")
-          tmpChannel.catchupType = CATCHUP_FS;
+          if (strCatchupType == "append")
+            tmpChannel.catchupType = CATCHUP_APPEND;
+          else if (strCatchupType == "shift" || strCatchupType == "timeshift")
+            tmpChannel.catchupType = CATCHUP_TIMESHIFT;
+          else if (strCatchupType == "xc")
+            tmpChannel.catchupType = CATCHUP_XC;
+          else if (strCatchupType == "ez-ts" || strCatchupType == "Ezserver")
+            tmpChannel.catchupType = CATCHUP_EZTS;
+          else if (strCatchupType == "fs" || strCatchupType == "flussonic" || strCatchupType == "flussonic-ts")
+            tmpChannel.catchupType = CATCHUP_FS;
+          else
+            tmpChannel.catchupType = CATCHUP_DEFAULT;
+        }
         else
-          tmpChannel.catchupType = CATCHUP_DEFAULT;
+        {
+          tmpChannel.catchupType = g_ArchiveConfig.GetArchiveType();
+        }
 
         if (!strGroupName.empty())
         {
@@ -1665,10 +1672,14 @@ std::string PVRIptvData::BuildEpgTagUrl(const EPG_TAG *tag, const PVRIptvChannel
         case CATCHUP_XC:
           urlTemplate = GenerateXtreamCodesCatchupSource(streamUrl);
           break;
+        case CATCHUP_CUSTOM:
+          urlTemplate = streamUrl + g_ArchiveConfig.GetArchiveUrlFormat();
+          break;
         case CATCHUP_DEFAULT:
+          urlTemplate = !channel.strCatchupSource.empty() ? channel.strCatchupSource : streamUrl;
+          break;
         default:
-          urlTemplate = g_ArchiveConfig.GetArchiveUrlFormat().empty() ? channel.strCatchupSource
-           : streamUrl + g_ArchiveConfig.GetArchiveUrlFormat();
+          urlTemplate = streamUrl;
       }
       streamUrl = g_ArchiveConfig.FormatDateTime(offset - channel.iTvgShift, duration, urlTemplate);
     }
@@ -1801,11 +1812,15 @@ bool PVRIptvData::IsArchiveSupportedOnChannel(const PVRIptvChannel &channel)
   switch (channel.catchupType)
   {
     case CATCHUP_APPEND:
+    case CATCHUP_DEFAULT:
       return !channel.strCatchupSource.empty();
     case CATCHUP_TIMESHIFT:
+    case CATCHUP_FS:
+    case CATCHUP_XC:
       return true;
-    case CATCHUP_DEFAULT:
+    case CATCHUP_CUSTOM:
+      return !g_ArchiveConfig.GetArchiveUrlFormat().empty();
     default:
-      return !g_ArchiveConfig.GetArchiveUrlFormat().empty() || !channel.strCatchupSource.empty();
+      return false;
   }
 }
