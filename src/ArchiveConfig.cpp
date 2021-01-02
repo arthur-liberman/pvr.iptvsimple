@@ -47,7 +47,7 @@ void CArchiveConfig::ReadSettings(CHelper_libXBMC_addon *XBMC)
     int temp = 0;
     if (XBMC->GetSetting("archTimeshiftBuffer", &temp))
     {
-        m_tTimeshiftBuffer = static_cast<time_t>(++temp) * 24*60*60;
+        m_tTimeshiftBuffer = static_cast<time_t>(temp) * 24*60*60;
     }
     else
     {
