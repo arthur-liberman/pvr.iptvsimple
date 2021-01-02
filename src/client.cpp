@@ -371,8 +371,8 @@ PVR_ERROR GetChannelStreamProperties(const PVR_CHANNEL* channel, PVR_NAMED_VALUE
       g_bResetUrlOffset = false;
       if (m_data->IsArchiveSupportedOnChannel(m_currentChannel))
       {
-        m_data->SetEpgUrlTimeOffset(g_ArchiveConfig.GetTimeshiftBuffer());
-        m_currentChannel.timeshiftStartTime = time(0) - g_ArchiveConfig.GetTimeshiftBuffer();
+        m_data->SetEpgUrlTimeOffset(m_currentChannel.iCatchupLength);
+        m_currentChannel.timeshiftStartTime = time(0) - m_currentChannel.iCatchupLength;
       }
       else
       {
@@ -464,7 +464,7 @@ PVR_ERROR GetEPGTagStreamProperties(const EPG_TAG* tag,
     epgStrUrl = m_data->GetEpgTagUrl(tag, m_currentChannel);
     time_t timeNow = time(0);
     time_t programOffset = timeNow - m_currentChannel.epgTag.startTime;
-    time_t timeshiftBuffer = std::max(programOffset, g_ArchiveConfig.GetTimeshiftBuffer());
+    time_t timeshiftBuffer = std::max(programOffset, static_cast<time_t>(m_currentChannel.iCatchupLength));
     m_currentChannel.timeshiftStartTime = timeNow - timeshiftBuffer;
     m_currentChannel.epgTag.startTime = m_currentChannel.timeshiftStartTime;
     m_currentChannel.epgTag.endTime = timeNow;

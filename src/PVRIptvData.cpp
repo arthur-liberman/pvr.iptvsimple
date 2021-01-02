@@ -50,6 +50,7 @@
 #define TVG_INFO_LOGO_MARKER    "tvg-logo="
 #define TVG_INFO_SHIFT_MARKER   "tvg-shift="
 #define TVG_INFO_CHNO_MARKER    "tvg-chno="
+#define TVG_INFO_REC            "tvg-rec="
 #define GROUP_NAME_MARKER       "group-title="
 #define CATCHUP_TYPE            "catchup="
 #define CATCHUP_SOURCE          "catchup-source="
@@ -649,6 +650,8 @@ bool PVRIptvData::LoadPlayList(void)
         globalStrCatchupType = ReadMarkerValue(strLine, CATCHUP_TYPE);
         globalStrCatchupSource = ReadMarkerValue(strLine, CATCHUP_SOURCE);
         globalStrCatchupDays = ReadMarkerValue(strLine, CATCHUP_DAYS);
+        if (globalStrCatchupDays.empty())
+          globalStrCatchupDays = ReadMarkerValue(strLine, TVG_INFO_REC);
         continue;
       }
       else
@@ -704,6 +707,8 @@ bool PVRIptvData::LoadPlayList(void)
         strCatchupType = ReadMarkerValue(strInfoLine, CATCHUP_TYPE);
         strCatchupSource = ReadMarkerValue(strInfoLine, CATCHUP_SOURCE);
         strCatchupDays   = ReadMarkerValue(strInfoLine, CATCHUP_DAYS);
+        if (strCatchupDays.empty())
+          strCatchupDays = ReadMarkerValue(strInfoLine, TVG_INFO_REC);
 
         if (strTvgId.empty())
           strTvgId = ReadMarkerValue(strInfoLine, TVG_INFO_ID_MARKER_UC);
@@ -1818,7 +1823,7 @@ bool PVRIptvData::IsArchiveSupportedOnChannel(int uniqueId)
 
 bool PVRIptvData::IsArchiveSupportedOnChannel(const PVRIptvChannel &channel)
 {
-  if (!g_ArchiveConfig.IsEnabled())
+  if (!g_ArchiveConfig.IsEnabled() || channel.iCatchupLength == 0)
     return false;
 
   switch (channel.catchupType)
