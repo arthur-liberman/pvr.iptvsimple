@@ -158,6 +158,7 @@ private:
 
   virtual std::string GenerateFlussonicCatchupSource(const std::string& url);
   virtual std::string GenerateXtreamCodesCatchupSource(const std::string& url);
+  virtual void ProcessGroupLine(std::string groupsLine, bool bRadio, std::vector<int>& iCurrentGroupId);
 
   bool                              m_bTSOverride;
   int                               m_iEPGTimeShift;
